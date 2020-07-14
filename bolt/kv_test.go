@@ -12,7 +12,7 @@ type KVStoreFields struct {
 	Pairs  []kv.Pair
 }
 
-func initKVStore(f KVStoreFields, t *testing.T) (kv.Store, func()) {
+func initKVStore(f kv.KVStoreFields, t *testing.T) (kv.Store, func()) {
 	s, closeFn, err := NewTestKVStore(t)
 	if err != nil {
 		t.Fatalf("failed to create new kv store: %v", err)
@@ -54,4 +54,9 @@ func mustCreateBucket(t testing.TB, store kv.SchemaStore, bucket []byte) {
 	// if err := migration.CreateBuckets(migrationName, bucket).Up(context.Background(), store); err != nil {
 	// 	t.Fatal(err)
 	// }
+
+	err := store.CreateBucket(context.Background(), bucket)
+	if err != nil {
+		t.Fatalf("Could not create bucket: %v", err)
+	}
 }

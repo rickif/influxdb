@@ -14,6 +14,17 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	authorizationBucket   = []byte("authorizationsv1")
+	bucketBucket          = []byte("bucketsv1")
+	dashboardBucket       = []byte("dashboardsv2")
+	organizationBucket    = []byte("organizationsv1")
+	scraperBucket         = []byte("scraperv2")
+	telegrafBucket        = []byte("telegrafv1")
+	telegrafPluginsBucket = []byte("telegrafPluginsv1")
+	userBucket            = []byte("usersv1")
+)
+
 const DefaultFilename = "influxd.bolt"
 
 // Client is a client for the boltDB data store.
