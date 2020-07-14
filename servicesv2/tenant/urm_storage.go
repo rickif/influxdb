@@ -10,6 +10,7 @@ import (
 )
 
 var urmBucket = []byte("userresourcemappingsv1")
+var urmByUserIndex = []byte("userresourcemappingsbyuserindexv1")
 
 // NOTE(affo): On URM creation, we check that the user exists.
 // We do not check that the resource it is pointing to exists.

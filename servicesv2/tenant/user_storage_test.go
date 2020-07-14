@@ -1,4 +1,4 @@
-package tenant_test
+package tenant
 
 import (
 	"context"
@@ -11,13 +11,14 @@ import (
 
 	"github.com/influxdata/influxdb/servicesv2/bolt"
 	"github.com/influxdata/influxdb/servicesv2/kv"
-	"github.com/influxdata/influxdb/servicesv2/tenant"
+
+	//"github.com/influxdata/influxdb/servicesv2/
 	"github.com/influxdata/influxdb/v2"
 	"go.uber.org/zap/zaptest"
 )
 
 func TestUser(t *testing.T) {
-	simpleSetup := func(t *testing.T, store *tenant.Store, tx kv.Tx) {
+	simpleSetup := func(t *testing.T, store *Store, tx kv.Tx) {
 		for i := 1; i <= 10; i++ {
 			err := store.CreateUser(context.Background(), tx, &influxdb.User{
 				ID:     influxdb.ID(i),
@@ -32,14 +33,14 @@ func TestUser(t *testing.T) {
 
 	st := []struct {
 		name    string
-		setup   func(*testing.T, *tenant.Store, kv.Tx)
-		update  func(*testing.T, *tenant.Store, kv.Tx)
-		results func(*testing.T, *tenant.Store, kv.Tx)
+		setup   func(*testing.T, *Store, kv.Tx)
+		update  func(*testing.T, *Store, kv.Tx)
+		results func(*testing.T, *Store, kv.Tx)
 	}{
 		{
 			name:  "create",
 			setup: simpleSetup,
-			results: func(t *testing.T, store *tenant.Store, tx kv.Tx) {
+			results: func(t *testing.T, store *Store, tx kv.Tx) {
 				users, err := store.ListUsers(context.Background(), tx)
 				if err != nil {
 					t.Fatal(err)
@@ -65,7 +66,7 @@ func TestUser(t *testing.T) {
 		{
 			name:  "get",
 			setup: simpleSetup,
-			results: func(t *testing.T, store *tenant.Store, tx kv.Tx) {
+			results: func(t *testing.T, store *Store, tx kv.Tx) {
 				user, err := store.GetUser(context.Background(), tx, 5)
 				if err != nil {
 					t.Fatal(err)
@@ -90,11 +91,11 @@ func TestUser(t *testing.T) {
 					t.Fatalf("expected identical user: \n%+v\n%+v", user, expected)
 				}
 
-				if _, err := store.GetUser(context.Background(), tx, 500); err != tenant.ErrUserNotFound {
+				if _, err := store.GetUser(context.Background(), tx, 500); err != ErrUserNotFound {
 					t.Fatal("failed to get correct error when looking for invalid user by id")
 				}
 
-				if _, err := store.GetUserByName(context.Background(), tx, "notauser"); err != tenant.ErrUserNotFound {
+				if _, err := store.GetUserByName(context.Background(), tx, "notauser"); err != ErrUserNotFound {
 					t.Fatal("failed to get correct error when looking for invalid user by name")
 				}
 
@@ -103,7 +104,7 @@ func TestUser(t *testing.T) {
 		{
 			name:  "list",
 			setup: simpleSetup,
-			results: func(t *testing.T, store *tenant.Store, tx kv.Tx) {
+			results: func(t *testing.T, store *Store, tx kv.Tx) {
 				users, err := store.ListUsers(context.Background(), tx)
 				if err != nil {
 					t.Fatal(err)
@@ -153,10 +154,10 @@ func TestUser(t *testing.T) {
 		{
 			name:  "update",
 			setup: simpleSetup,
-			update: func(t *testing.T, store *tenant.Store, tx kv.Tx) {
+			update: func(t *testing.T, store *Store, tx kv.Tx) {
 				user5 := "user5"
 				_, err := store.UpdateUser(context.Background(), tx, influxdb.ID(3), influxdb.UserUpdate{Name: &user5})
-				if err.Error() != tenant.UserAlreadyExistsError(user5).Error() {
+				if err.Error() != UserAlreadyExistsError(user5).Error() {
 					t.Fatal("failed to error on duplicate username")
 				}
 
@@ -172,7 +173,7 @@ func TestUser(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			results: func(t *testing.T, store *tenant.Store, tx kv.Tx) {
+			results: func(t *testing.T, store *Store, tx kv.Tx) {
 				users, err := store.ListUsers(context.Background(), tx)
 				if err != nil {
 					t.Fatal(err)
@@ -200,14 +201,14 @@ func TestUser(t *testing.T) {
 		{
 			name:  "delete",
 			setup: simpleSetup,
-			update: func(t *testing.T, store *tenant.Store, tx kv.Tx) {
+			update: func(t *testing.T, store *Store, tx kv.Tx) {
 				err := store.DeleteUser(context.Background(), tx, 1)
 				if err != nil {
 					t.Fatal(err)
 				}
 
 				err = store.DeleteUser(context.Background(), tx, 1)
-				if err != tenant.ErrUserNotFound {
+				if err != ErrUserNotFound {
 					t.Fatal("invalid error when deleting user that has already been deleted", err)
 				}
 
@@ -217,7 +218,7 @@ func TestUser(t *testing.T) {
 				}
 
 			},
-			results: func(t *testing.T, store *tenant.Store, tx kv.Tx) {
+			results: func(t *testing.T, store *Store, tx kv.Tx) {
 				users, err := store.ListUsers(context.Background(), tx)
 				if err != nil {
 					t.Fatal(err)
@@ -252,7 +253,7 @@ func TestUser(t *testing.T) {
 			}
 			defer closeS()
 
-			ts := tenant.NewStore(s)
+			ts := NewStore(s)
 
 			// setup
 			if testScenario.setup != nil {
@@ -305,6 +306,24 @@ func NewTestBoltStore(t *testing.T) (kv.SchemaStore, func(), error) {
 	s := bolt.NewKVStore(logger, path)
 	if err := s.Open(context.Background()); err != nil {
 		return nil, nil, err
+	}
+	buckets := [][]byte{
+		userBucket,
+		userpasswordBucket,
+		userIndex,
+		urmBucket,
+		organizationBucket,
+		organizationIndex,
+		bucketBucket,
+		bucketIndex,
+		urmByUserIndex,
+	}
+
+	for _, b := range buckets {
+		err = s.CreateBucket(context.Background(), b)
+		if err != nil {
+			t.Fatalf("Cannot create bucket: %v", err)
+		}
 	}
 
 	close := func() {

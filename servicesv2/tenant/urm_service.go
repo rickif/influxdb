@@ -83,7 +83,7 @@ func permissionFromMapping(mappings []*influxdb.UserResourceMapping) ([]influxdb
 var (
 	URMByUserIndexMapping = kv.NewIndexMapping(
 		urmBucket,
-		[]byte("userresourcemappingsbyuserindexv1"),
+		urmByUserIndex,
 		func(v []byte) ([]byte, error) {
 			var urm influxdb.UserResourceMapping
 			if err := json.Unmarshal(v, &urm); err != nil {
