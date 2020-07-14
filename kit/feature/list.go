@@ -184,7 +184,7 @@ func NewHydrateVarsFunctionality() BoolFlag {
 	return hydratevars
 }
 
-var memoryOptimizedFmill = MakeBoolFlag(
+var memoryOptimizedFill = MakeBoolFlag(
 	"Memory Optimized Fill",
 	"memoryOptimizedFill",
 	"Query Team",
