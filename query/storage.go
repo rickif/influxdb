@@ -44,6 +44,7 @@ type WindowAggregateCapability interface {
 	HaveSum() bool
 	HaveFirst() bool
 	HaveLast() bool
+	HaveOffset() bool
 }
 
 // WindowAggregateReader implements the WindowAggregate capability.
