@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/influxdata/influxdb/kv"
+	"github.com/influxdata/influxdb/servicesv2/kv"
 )
 
 type KVStoreFields struct {

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/influxdata/influxdb/kv"
+	"github.com/influxdata/influxdb/servicesv2/kv"
 	bolt "go.etcd.io/bbolt"
 	"go.uber.org/zap"
 )

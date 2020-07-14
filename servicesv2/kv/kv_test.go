@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/influxdata/influxdb/bolt"
-	"github.com/influxdata/influxdb/kv"
+	"github.com/influxdata/influxdb/servicesv2/kv"
 	"go.uber.org/zap/zaptest"
 )
 
