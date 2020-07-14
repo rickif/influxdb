@@ -49,12 +49,6 @@ func TestKVStore(t *testing.T) {
 func mustCreateBucket(t testing.TB, store kv.SchemaStore, bucket []byte) {
 	t.Helper()
 
-	// migrationName := fmt.Sprintf("create bucket %q", string(bucket))
-
-	// if err := migration.CreateBuckets(migrationName, bucket).Up(context.Background(), store); err != nil {
-	// 	t.Fatal(err)
-	// }
-
 	err := store.CreateBucket(context.Background(), bucket)
 	if err != nil {
 		t.Fatalf("Could not create bucket: %v", err)
