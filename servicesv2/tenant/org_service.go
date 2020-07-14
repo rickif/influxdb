@@ -3,9 +3,9 @@ package tenant
 import (
 	"context"
 
+	"github.com/influxdata/influxdb/servicesv2/kv"
 	"github.com/influxdata/influxdb/v2"
 	icontext "github.com/influxdata/influxdb/v2/context"
-	"github.com/influxdata/influxdb/v2/kv"
 )
 
 // Returns a single organization by ID.

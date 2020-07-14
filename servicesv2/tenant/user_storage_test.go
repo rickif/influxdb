@@ -2,13 +2,18 @@ package tenant_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
+	"github.com/influxdata/influxdb/servicesv2/bolt"
+	"github.com/influxdata/influxdb/servicesv2/kv"
+	"github.com/influxdata/influxdb/servicesv2/tenant"
 	"github.com/influxdata/influxdb/v2"
-	"github.com/influxdata/influxdb/v2/kv"
-	"github.com/influxdata/influxdb/v2/tenant"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestUser(t *testing.T) {
@@ -241,7 +246,7 @@ func TestUser(t *testing.T) {
 	}
 	for _, testScenario := range st {
 		t.Run(testScenario.name, func(t *testing.T) {
-			s, closeS, err := NewTestInmemStore(t)
+			s, closeS, err := NewTestBoltStore(t)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -286,4 +291,26 @@ func TestUser(t *testing.T) {
 			}
 		})
 	}
+}
+
+func NewTestBoltStore(t *testing.T) (kv.SchemaStore, func(), error) {
+	f, err := ioutil.TempFile("", "influxdata-bolt-")
+	if err != nil {
+		return nil, nil, errors.New("unable to open temporary boltdb file")
+	}
+	f.Close()
+
+	logger := zaptest.NewLogger(t)
+	path := f.Name()
+	s := bolt.NewKVStore(logger, path)
+	if err := s.Open(context.Background()); err != nil {
+		return nil, nil, err
+	}
+
+	close := func() {
+		s.Close()
+		os.Remove(path)
+	}
+
+	return s, close, nil
 }

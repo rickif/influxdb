@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/influxdata/influxdb/servicesv2/kv"
 	"github.com/influxdata/influxdb/v2"
-	"github.com/influxdata/influxdb/v2/kv"
 )
 
 var (

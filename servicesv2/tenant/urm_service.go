@@ -2,9 +2,10 @@ package tenant
 
 import (
 	"context"
+	"encoding/json"
 
+	"github.com/influxdata/influxdb/servicesv2/kv"
 	"github.com/influxdata/influxdb/v2"
-	"github.com/influxdata/influxdb/v2/kv"
 )
 
 // FindUserResourceMappings returns a list of UserResourceMappings that match filter and the total count of matching mappings.
@@ -76,3 +77,21 @@ func permissionFromMapping(mappings []*influxdb.UserResourceMapping) ([]influxdb
 
 	return ps, nil
 }
+
+// URMByUserIndeMappingx is the mapping description of an index
+// between a user and a URM
+var (
+	URMByUserIndexMapping = kv.NewIndexMapping(
+		urmBucket,
+		[]byte("userresourcemappingsbyuserindexv1"),
+		func(v []byte) ([]byte, error) {
+			var urm influxdb.UserResourceMapping
+			if err := json.Unmarshal(v, &urm); err != nil {
+				return nil, err
+			}
+
+			id, _ := urm.UserID.Encode()
+			return id, nil
+		},
+	)
+)

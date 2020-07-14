@@ -3,9 +3,9 @@ package tenant
 import (
 	"context"
 
+	"github.com/influxdata/influxdb/servicesv2/kv"
 	"github.com/influxdata/influxdb/v2"
 	"github.com/influxdata/influxdb/v2/kit/tracing"
-	"github.com/influxdata/influxdb/v2/kv"
 	"github.com/influxdata/influxdb/v2/snowflake"
 )
 
@@ -22,7 +22,7 @@ func NewStore(kvStore kv.Store) *Store {
 	return &Store{
 		kvStore:        kvStore,
 		IDGen:          snowflake.NewDefaultIDGenerator(),
-		urmByUserIndex: kv.NewIndex(kv.URMByUserIndexMapping, kv.WithIndexReadPathEnabled),
+		urmByUserIndex: kv.NewIndex(URMByUserIndexMapping, kv.WithIndexReadPathEnabled),
 	}
 }
 
