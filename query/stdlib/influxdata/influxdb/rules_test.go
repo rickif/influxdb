@@ -2229,6 +2229,51 @@ func TestTransposeGroupToWindowAggregateRule(t *testing.T) {
 		),
 	})
 
+	// ReadRange -> group(host) -> window(offset: ...) -> min => ReadWindowAggregate -> group(host, _start, _stop) -> min
+	tests = append(tests, plantest.RuleTestCase{
+		Context: haveCaps,
+		Name:    "PositiveOffset",
+		Rules:   rules,
+		Before: &plantest.PlanSpec{
+			Nodes: []plan.Node{
+				plan.CreateLogicalNode("ReadRange", &readRange),
+				plan.CreateLogicalNode("group", group(flux.GroupModeBy, "host")),
+				plan.CreateLogicalNode("window", &universe.WindowProcedureSpec{
+					Window: plan.WindowSpec{
+						Every:  dur2m,
+						Period: dur2m,
+						Offset: dur1m,
+					},
+					TimeColumn:  "_time",
+					StartColumn: "_start",
+					StopColumn:  "_stop",
+				}),
+				plan.CreateLogicalNode("min", minProcedureSpec()),
+			},
+			Edges: [][2]int{
+				{0, 1},
+				{1, 2},
+				{2, 3},
+			},
+		},
+		After: &plantest.PlanSpec{
+			Nodes: []plan.Node{
+				plan.CreatePhysicalNode("ReadWindowAggregate", &influxdb.ReadWindowAggregatePhysSpec{
+					ReadRangePhysSpec: readRange,
+					Aggregates:        []plan.ProcedureKind{universe.MinKind},
+					WindowEvery:       dur2m.Nanoseconds(),
+					Offset:            dur1m.Nanoseconds(),
+				}),
+				plan.CreatePhysicalNode("group", group(flux.GroupModeBy, "host", "_start", "_stop")),
+				plan.CreatePhysicalNode("min", minProcedureSpec()),
+			},
+			Edges: [][2]int{
+				{0, 1},
+				{1, 2},
+			},
+		},
+	})
+
 	// Helper that adds a test with a simple plan that does not pass due to a
 	// specified bad window
 	simpleMinUnchanged := func(name string, window universe.WindowProcedureSpec) {

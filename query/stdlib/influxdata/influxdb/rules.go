@@ -952,6 +952,7 @@ func (p GroupWindowAggregateTransposeRule) Rewrite(ctx context.Context, pn plan.
 		ReadRangePhysSpec: *fromSpec.ReadRangePhysSpec.Copy().(*ReadRangePhysSpec),
 		Aggregates:        []plan.ProcedureKind{fnNode.Kind()},
 		WindowEvery:       windowSpec.Window.Every.Nanoseconds(),
+		Offset:            windowSpec.Window.Offset.Nanoseconds(),
 		CreateEmpty:       windowSpec.CreateEmpty,
 	})
 
