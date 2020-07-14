@@ -1240,6 +1240,7 @@ func TestPushDownWindowAggregateRule(t *testing.T) {
 	dur2m := values.ConvertDuration(120 * time.Second)
 	dur0 := values.ConvertDuration(0)
 	durNeg, _ := values.ParseDuration("-60s")
+	dur1mo, _ := values.ParseDuration("1mo")
 	dur1y, _ := values.ParseDuration("1y")
 	durInf := values.ConvertDuration(math.MaxInt64)
 
@@ -1402,6 +1403,33 @@ func TestPushDownWindowAggregateRule(t *testing.T) {
 		},
 	})
 
+	// ReadRange -> window(offset: ...) -> last => ReadWindowAggregate
+	tests = append(tests, plantest.RuleTestCase{
+		Context: haveCaps,
+		Name:    "WindowPositiveOffset",
+		Rules:   []plan.Rule{influxdb.PushDownWindowAggregateRule{}},
+		Before: simplePlanWithWindowAgg(universe.WindowProcedureSpec{
+			Window: plan.WindowSpec{
+				Every:  dur2m,
+				Period: dur2m,
+				Offset: dur1m,
+			},
+			TimeColumn:  "_time",
+			StartColumn: "_start",
+			StopColumn:  "_stop",
+		}, universe.LastKind, lastProcedureSpec()),
+		After: &plantest.PlanSpec{
+			Nodes: []plan.Node{
+				plan.CreatePhysicalNode("ReadWindowAggregate", &influxdb.ReadWindowAggregatePhysSpec{
+					ReadRangePhysSpec: readRange,
+					Aggregates:        []plan.ProcedureKind{universe.LastKind},
+					WindowEvery:       120000000000,
+					Offset:            60000000000,
+				}),
+			},
+		},
+	})
+
 	// Helper that adds a test with a simple plan that does not pass due to a
 	// specified bad window
 	simpleMinUnchanged := func(name string, window universe.WindowProcedureSpec) {
@@ -1421,10 +1449,10 @@ func TestPushDownWindowAggregateRule(t *testing.T) {
 	badWindow1.Window.Period = dur2m
 	simpleMinUnchanged("BadPeriod", badWindow1)
 
-	// Condition not met: offset non-zero
+	// Condition not met: negative offset
 	badWindow2 := window1m
-	badWindow2.Window.Offset = dur1m
-	simpleMinUnchanged("BadOffset", badWindow2)
+	badWindow2.Window.Offset = durNeg
+	simpleMinUnchanged("NegOffset", badWindow2)
 
 	// Condition not met: non-standard _time column
 	badWindow3 := window1m
@@ -1440,6 +1468,11 @@ func TestPushDownWindowAggregateRule(t *testing.T) {
 	badWindow5 := window1m
 	badWindow5.StopColumn = "_stappp"
 	simpleMinUnchanged("BadStop", badWindow5)
+
+	// Condition not met: monthly offset
+	badWindow6 := window1m
+	badWindow6.Window.Offset = dur1mo
+	simpleMinUnchanged("MonthOffset", badWindow6)
 
 	// Condition met: createEmpty is true.
 	windowCreateEmpty1m := window1m
@@ -2225,11 +2258,6 @@ func TestTransposeGroupToWindowAggregateRule(t *testing.T) {
 	badWindow1 := window1m
 	badWindow1.Window.Period = dur2m
 	simpleMinUnchanged("BadPeriod", badWindow1)
-
-	// Condition not met: offset non-zero
-	badWindow2 := window1m
-	badWindow2.Window.Offset = dur1m
-	simpleMinUnchanged("BadOffset", badWindow2)
 
 	// Condition not met: non-standard _time column
 	badWindow3 := window1m
