@@ -34,8 +34,9 @@ import {
   postDashboardsLabel as apiPostDashboardsLabel,
   postDashboardsCell as apiPostDashboardsCell,
   patchDashboardsCellsView as apiPatchDashboardsCellsView,
-  postTemplatesApply,
+  deleteStack as deleteStackAPI,
   getStacks,
+  postTemplatesApply,
   Error as PkgError,
   TemplateSummary,
 } from 'src/client'
@@ -503,4 +504,14 @@ export const fetchStacks = async (orgID: string) => {
   }
 
   return (resp.data as {stacks: InstalledStack[]}).stacks
+}
+
+export const deleteStack = async (stackId, orgID) => {
+  const resp = await deleteStackAPI({stack_id: stackId, query: {orgID}})
+
+  if (resp.status >= 300) {
+    throw new Error((resp.data as PkgError).message)
+  }
+
+  return resp
 }
