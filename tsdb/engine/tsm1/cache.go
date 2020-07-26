@@ -11,6 +11,7 @@ import (
 	"github.com/influxdata/influxdb/models"
 	"github.com/influxdata/influxdb/tsdb"
 	"github.com/influxdata/influxql"
+	skiplist "github.com/sean-public/fast-skiplist"
 	"go.uber.org/zap"
 )
 
@@ -34,8 +35,9 @@ func ErrCacheMemorySizeLimitExceeded(n, limit uint64) error {
 
 // entry is a set of values and some metadata.
 type entry struct {
-	mu     sync.RWMutex
-	values Values // All stored values.
+	mu sync.RWMutex
+	//values Values // All stored values.
+	store *skiplist.SkipList
 
 	// The type of values stored. Read only so doesn't need to be protected by
 	// mu.
@@ -46,8 +48,10 @@ type entry struct {
 // values are not valid, an error is returned.
 func newEntryValues(values []Value) (*entry, error) {
 	e := &entry{}
-	e.values = make(Values, 0, len(values))
-	e.values = append(e.values, values...)
+	e.store = skiplist.New()
+	for _, value := range values {
+		e.store.Set(float64(value.UnixNano()), value)
+	}
 
 	// No values, don't check types and ordering
 	if len(values) == 0 {
@@ -85,62 +89,64 @@ func (e *entry) add(values []Value) error {
 
 	// entry currently has no values, so add the new ones and we're done.
 	e.mu.Lock()
-	if len(e.values) == 0 {
-		e.values = values
-		e.vtype = valueType(values[0])
-		e.mu.Unlock()
-		return nil
+	for _, value := range values {
+		e.store.Set(float64(value.UnixNano()), value)
 	}
 
-	// Append the new values to the existing ones...
-	e.values = append(e.values, values...)
+	e.vtype = valueType(values[0])
 	e.mu.Unlock()
 	return nil
-}
-
-// deduplicate sorts and orders the entry's values. If values are already deduped and sorted,
-// the function does no work and simply returns.
-func (e *entry) deduplicate() {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	if len(e.values) <= 1 {
-		return
-	}
-	e.values = e.values.Deduplicate()
 }
 
 // count returns the number of values in this entry.
 func (e *entry) count() int {
 	e.mu.RLock()
-	n := len(e.values)
-	e.mu.RUnlock()
-	return n
+	defer e.mu.RUnlock()
+	return e.store.Length
 }
 
 // filter removes all values with timestamps between min and max inclusive.
 func (e *entry) filter(min, max int64) {
 	e.mu.Lock()
-	if len(e.values) > 1 {
-		e.values = e.values.Deduplicate()
-	}
-	e.values = e.values.Exclude(min, max)
+	/*
+		if len(e.values) > 1 {
+			e.values = e.values.Deduplicate()
+		}
+		e.values = e.values.Exclude(min, max)
+	*/
 	e.mu.Unlock()
 }
 
 // size returns the size of this entry in bytes.
 func (e *entry) size() int {
 	e.mu.RLock()
-	sz := e.values.Size()
+	//sz := e.values.Size()
 	e.mu.RUnlock()
-	return sz
+	return 0
 }
 
 // InfluxQLType returns for the entry the data type of its values.
 func (e *entry) InfluxQLType() (influxql.DataType, error) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
-	return e.values.InfluxQLType()
+	itr := e.store.Front()
+	if itr == nil {
+		return influxql.Unknown, fmt.Errorf("no values to infer type")
+	}
+	switch itr.Value().(Value).(type) {
+	case FloatValue:
+		return influxql.Float, nil
+	case IntegerValue:
+		return influxql.Integer, nil
+	case UnsignedValue:
+		return influxql.Unsigned, nil
+	case BooleanValue:
+		return influxql.Boolean, nil
+	case StringValue:
+		return influxql.String, nil
+	}
+
+	return influxql.Unknown, fmt.Errorf("unsupported value type")
 }
 
 // Statistics gathered by the Cache.
@@ -432,7 +438,7 @@ func (c *Cache) Deduplicate() {
 
 	// Apply a function that simply calls deduplicate on each entry in the ring.
 	// apply cannot return an error in this invocation.
-	_ = store.apply(func(_ []byte, e *entry) error { e.deduplicate(); return nil })
+	_ = store.apply(func(_ []byte, e *entry) error { return nil })
 }
 
 // ClearSnapshot removes the snapshot cache from the list of flushing caches and
@@ -567,8 +573,6 @@ func (c *Cache) Values(key []byte) Values {
 			// No values in hot cache or snapshots.
 			return nil
 		}
-	} else {
-		e.deduplicate()
 	}
 
 	// Build the sequence of entries that will be returned, in the correct order.
@@ -577,7 +581,6 @@ func (c *Cache) Values(key []byte) Values {
 	sz := 0
 
 	if snapshotEntries != nil {
-		snapshotEntries.deduplicate() // guarantee we are deduplicated
 		entries = append(entries, snapshotEntries)
 		sz += snapshotEntries.count()
 	}
@@ -595,14 +598,14 @@ func (c *Cache) Values(key []byte) Values {
 	// Create the buffer, and copy all hot values and snapshots. Individual
 	// entries are sorted at this point, so now the code has to check if the
 	// resultant buffer will be sorted from start to finish.
-	values := make(Values, sz)
-	n := 0
+	values := make(Values, 0, sz)
 	for _, e := range entries {
 		e.mu.RLock()
-		n += copy(values[n:], e.values)
+		for itr := e.store.Front(); itr != nil; itr = itr.Next() {
+			values = append(values, itr.Value().(Value))
+		}
 		e.mu.RUnlock()
 	}
-	values = values[:n]
 	values = values.Deduplicate()
 
 	return values
@@ -664,10 +667,13 @@ func (c *Cache) values(key []byte) Values {
 	if e == nil {
 		return nil
 	}
+	var values Values
 	e.mu.RLock()
-	v := e.values
+	for itr := e.store.Front(); itr != nil; itr = itr.Next() {
+		values = append(values, itr.Value().(Value))
+	}
 	e.mu.RUnlock()
-	return v
+	return values
 }
 
 // ApplyEntryFn applies the function f to each entry in the Cache.

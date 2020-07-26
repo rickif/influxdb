@@ -846,7 +846,7 @@ func (e *Engine) LoadMetadataIndex(shardID uint64, index tsdb.Index) error {
 
 	// load metadata from the Cache
 	if err := e.Cache.ApplyEntryFn(func(key []byte, entry *entry) error {
-		fieldType, err := entry.values.InfluxQLType()
+		fieldType, err := entry.InfluxQLType()
 		if err != nil {
 			e.logger.Info("Error getting the data type of values for key", zap.ByteString("key", key), zap.Error(err))
 		}

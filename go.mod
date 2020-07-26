@@ -37,6 +37,7 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.0.0
 	github.com/retailnext/hllpp v1.0.1-0.20180308014038-101a6d2f8b52
+	github.com/sean-public/fast-skiplist v0.0.0-20200308194023-d7f7945b944e
 	github.com/segmentio/kafka-go v0.2.0 // indirect
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/spf13/cast v1.3.0
@@ -52,3 +53,5 @@ require (
 	gonum.org/v1/gonum v0.6.0 // indirect
 	google.golang.org/grpc v1.26.0
 )
+
+replace github.com/sean-public/fast-skiplist => /Users/ricki/workspace/private/code/fast-skiplist
